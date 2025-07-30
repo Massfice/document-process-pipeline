@@ -1,0 +1,32 @@
+{
+    "name": "docs-cli",
+    "version": "1.0.0",
+    "type": "module",
+    "main": "dist/index.js",
+    "license": "MIT",
+    "scripts": {
+        "dev": "gulp watch",
+        "build": "gulp",
+        "test": "yarn ts:check && vitest",
+        "ts:check": "tsc --noEmit --project tsconfig.test.json"
+    },
+    "devDependencies": {
+        "@types/node": "^24.1.0",
+        "@types/yargs": "^17.0.33",
+        "del": "^8.0.0",
+        "gulp": "^5.0.0",
+        "gulp-typescript": "^6.0.0-alpha.1",
+        "typescript": "^5.8.3",
+        "vitest": "3.0.6"
+    },
+    "exports": {
+        ".": "./dist/index.js"
+    },
+    "bin": {
+        "docs-cli": "./dist/index.js"
+    },
+    "dependencies": {
+        "yargs": "^17.7.2",
+        "zod": "^3.24.2"
+    }
+}

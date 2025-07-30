@@ -1,0 +1,14 @@
+yarn.lock
+node_modules
+dist
+example/*
+!example/package.json
+!example/README.md
+!example/tsconfig.json
+!example/index.ts
+tests/tests_artifacts/*
+!tests/tests_artifacts/.gitkeep
+
+.npmrc
+
+._*
