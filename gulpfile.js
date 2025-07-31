@@ -17,7 +17,7 @@ gulp.task('tsc', () => {
 
 gulp.task('chmod', async () => {
     const { chmod } = await import('node:fs/promises');
-    return chmod('dist/index.js', '755');
+    return chmod('dist/src/index.js', '755');
 });
 
 gulp.task('compile', gulp.series('clean', 'tsc', 'chmod'));

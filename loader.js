@@ -1,14 +1,34 @@
+import fs from 'fs';
+import path from 'path';
+
 export function resolve(
     specifier,
     context,
     defaultResolve,
 ) {
-    const extension =
-        specifier.startsWith('.') &&
-        !specifier.endsWith('.js') &&
-        !specifier.endsWith('.mjs')
-            ? '.js'
-            : '';
+    if (
+        !specifier.startsWith('.') ||
+        specifier.endsWith('.js') ||
+        specifier.endsWith('.mjs')
+    ) {
+        return defaultResolve(
+            specifier,
+            context,
+            defaultResolve,
+        );
+    }
+
+    const dirname = path.dirname(
+        context.parentURL.replace('file://', ''),
+    );
+
+    const modPath = path.join(dirname, specifier);
+
+    const isDir =
+        fs.existsSync(modPath) &&
+        fs.statSync(modPath).isDirectory();
+
+    const extension = isDir ? '/index.js' : '.js';
 
     return defaultResolve(
         specifier + extension,
