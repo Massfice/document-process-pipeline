@@ -1,5 +1,4 @@
 import { vi } from 'vitest';
-import { cli } from '../../src/cli';
 
 type ShellFunc = (
     args: string[],
@@ -14,7 +13,9 @@ export class ShellError extends Error {
     }
 }
 
-export const shell: ShellFunc = async (args) => {
+export const shell: (
+    cli: (args: string[]) => Promise<void>,
+) => ShellFunc = (cli) => async (args) => {
     const logs: string[] = [];
 
     const logFunction = (message: string) => {
