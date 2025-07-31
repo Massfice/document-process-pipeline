@@ -23,7 +23,7 @@
         ".": "./dist/index.js"
     },
     "bin": {
-        "docs-cli": "./dist/index.js"
+        "docs-cli": "./index.sh"
     },
     "dependencies": {
         "yargs": "^17.7.2",
