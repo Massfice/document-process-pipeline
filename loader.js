@@ -9,7 +9,8 @@ export function resolve(
     if (
         !specifier.startsWith('.') ||
         specifier.endsWith('.js') ||
-        specifier.endsWith('.mjs')
+        specifier.endsWith('.mjs') ||
+        specifier.endsWith('.cjs')
     ) {
         return defaultResolve(
             specifier,
