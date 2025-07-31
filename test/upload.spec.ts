@@ -51,6 +51,19 @@ describe('upload', () => {
         }
     });
 
+    it('returns unknown source type error', async () => {
+        const { logs } = await cls([
+            'upload',
+            '--source',
+            'test.txt',
+            '--return-error',
+        ]);
+
+        const parsed = JSON.parse(logs[logs.length - 1]);
+
+        expect(parsed.error).toBe('Unknown source type');
+    });
+
     it('throws "You need to specify an action" error if no commands are provided', async () => {
         expect.assertions(1);
 
