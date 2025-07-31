@@ -1,9 +1,11 @@
+import { docSchema } from './schemas/doc.schema';
+
 const extractCustomerName = (
     data: Record<string, any>,
     content: string,
 ) => {
     data.customerName = content
-        .replace('Customer Name: ', '')
+        .replace('Customer Name:', '')
         .trim();
 };
 
@@ -12,7 +14,7 @@ const extractCustomerEmail = (
     content: string,
 ) => {
     data.customerEmail = content
-        .replace('Customer Email: ', '')
+        .replace('Customer Email:', '')
         .trim();
 };
 
@@ -20,16 +22,14 @@ const extractTotal = (
     data: Record<string, any>,
     content: string,
 ) => {
-    data.total = content.replace('Total: ', '').trim();
+    data.total = content.replace('Total:', '').trim();
 };
 
 const extractProductName = (
     data: Record<string, any>,
     content: string,
 ) => {
-    data.name = content
-        .replace('Product Name: ', '')
-        .trim();
+    data.name = content.replace('Product Name:', '').trim();
 };
 
 const extractProductPrice = (
@@ -37,7 +37,7 @@ const extractProductPrice = (
     content: string,
 ) => {
     data.price = content
-        .replace('Product Price: ', '')
+        .replace('Product Price:', '')
         .trim();
 };
 
@@ -46,7 +46,7 @@ const extractProductQuantity = (
     content: string,
 ) => {
     data.quantity = content
-        .replace('Product Quantity: ', '')
+        .replace('Product Quantity:', '')
         .trim();
 };
 
@@ -88,7 +88,7 @@ const extractProducts = (
     data.products = [];
 
     content
-        .replace('Products: ', '')
+        .replace('Products:', '')
         .trim()
         .split('...\n')
         .forEach((productSection) => {
@@ -136,4 +136,16 @@ export const extractDataHelper = (content: string) => {
     }
 
     return data;
+};
+
+export const validateDataHelper = (
+    data: Record<string, any>,
+) => {
+    const result = docSchema.safeParse(data);
+
+    if (!result.success) {
+        return result.success;
+    }
+
+    return result.data;
 };

@@ -1,7 +1,10 @@
 import { CommandModule } from 'yargs';
 import { inject } from '../di';
 import { uploadSchema } from '../schemas/upload.schema';
-import { extractDataHelper } from '../extract-data-helper';
+import {
+    extractDataHelper,
+    validateDataHelper,
+} from '../extract-data-helper';
 
 export const extractDataCommand: CommandModule = {
     command: 'extract-data',
@@ -20,7 +23,8 @@ export const extractDataCommand: CommandModule = {
                 default: false,
             }),
     handler: async (args) => {
-        const { source } = uploadSchema.parse(args);
+        const { source, returnError } =
+            uploadSchema.parse(args);
 
         const storageProvider = inject('StorageProvider');
         const helper = inject('Helper');
@@ -33,18 +37,42 @@ export const extractDataCommand: CommandModule = {
             fileContent,
         });
 
-        const data = extractDataHelper(fileContent || '');
+        if (!fileContent && !returnError) {
+            throw new Error('File not found');
+        } else if (!fileContent) {
+            helper.return({
+                error: 'File not found',
+            });
+            return;
+        }
+
+        const data = extractDataHelper(fileContent);
 
         helper.log('debug', {
             message: 'Extracted data',
             data,
         });
 
+        const validatedData = validateDataHelper(data);
+
+        if (!validatedData) {
+            await storageProvider.updateFileMetadata(
+                source,
+                {
+                    status: 'invalid',
+                    data: JSON.stringify(data),
+                },
+            );
+            return;
+        }
+
         await storageProvider.updateFileMetadata(source, {
-            customerName: data.customerName,
-            customerEmail: data.customerEmail,
-            products: JSON.stringify(data.products),
-            total: data.total,
+            customerName: validatedData.customerName,
+            customerEmail: validatedData.customerEmail,
+            products: JSON.stringify(
+                validatedData.products,
+            ),
+            total: validatedData.total,
             status: 'validated',
         });
     },

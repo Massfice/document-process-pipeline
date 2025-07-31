@@ -59,7 +59,7 @@ describe('upload', () => {
             '--return-error',
         ]);
 
-        const parsed = JSON.parse(logs[logs.length - 1]);
+        const parsed = JSON.parse(logs[0]);
 
         expect(parsed.error).toBe('Unknown source type');
     });
