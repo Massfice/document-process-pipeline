@@ -14,8 +14,6 @@ const filePathHandlers: Record<
     },
 };
 
-// const getFilePath;
-
 export const uploadCommand: CommandModule = {
     command: 'upload',
     describe: 'Upload a file',
