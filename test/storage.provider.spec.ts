@@ -8,11 +8,13 @@ import {
 } from 'vitest';
 import { inject } from '../src/di';
 import {
+    ApiError,
     Bucket,
     File,
     Storage,
 } from '@google-cloud/storage';
 import { createMockFactory, mockObject } from '../sdk/di';
+import { Readable } from 'stream';
 
 const mockFn = createMockFactory(vi.fn);
 
@@ -80,5 +82,61 @@ describe('StorageProvider', () => {
                 somethingElse: '456',
             },
         });
+
+        expect(bucket.file).toHaveBeenCalledWith(
+            'text.txt',
+        );
+    });
+
+    it('returns file content', async () => {
+        const file = mockObject(
+            new File(bucket as any, 'test.txt'),
+            mockFn,
+        );
+
+        bucket.file.mockReturnValue(file as any);
+
+        const readStream = new Readable({
+            read() {},
+        });
+
+        file.createReadStream.mockReturnValue(readStream);
+
+        readStream.push('test');
+        readStream.push(null);
+
+        const storageProvider = inject('StorageProvider');
+
+        const fileContent =
+            await storageProvider.getFileContent(
+                'test.txt',
+            );
+
+        expect(fileContent).toBe('test');
+    });
+
+    it('returns null if file does not exist', async () => {
+        const file = mockObject(
+            new File(bucket as any, 'test.txt'),
+            mockFn,
+        );
+
+        bucket.file.mockReturnValue(file as any);
+
+        file.createReadStream.mockImplementation(() => {
+            const apiError = new ApiError('No such object');
+            apiError.code = 404;
+
+            throw apiError;
+        });
+
+        const storageProvider = inject('StorageProvider');
+
+        const fileContent =
+            await storageProvider.getFileContent(
+                'test.txt',
+            );
+
+        expect(fileContent).toBeNull();
     });
 });
