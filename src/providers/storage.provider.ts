@@ -118,4 +118,37 @@ export class StorageProvider {
             throw error;
         }
     }
+
+    async listFiles(status?: string) {
+        const bucket =
+            await this.bucketProvider.getBucket();
+
+        const [files] = await bucket.getFiles();
+
+        const filesWithMetadata = await Promise.all(
+            files.map(async (file) => {
+                const [{ metadata }] =
+                    await file.getMetadata();
+                const content = await this.getFileContent(
+                    file.name,
+                );
+
+                return {
+                    fileName: file.name,
+                    content,
+                    metadata,
+                };
+            }),
+        );
+
+        if (status) {
+            return filesWithMetadata.filter(
+                (file) =>
+                    file.metadata &&
+                    file.metadata.status === status,
+            );
+        }
+
+        return filesWithMetadata;
+    }
 }
