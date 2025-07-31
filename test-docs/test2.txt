@@ -1,0 +1,13 @@
+Customer Name: John Doe
+---
+Customer Email: john.doe@example.com
+---
+Products: Product Name: Product 1
+Product Price: 100
+Product Quantity: 1
+...
+Product Name: Product 2
+Product Price: 200
+Product Quantity: 2
+---
+Total: 500
