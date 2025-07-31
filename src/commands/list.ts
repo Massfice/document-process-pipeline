@@ -20,6 +20,11 @@ export const listCommand: CommandModule = {
             status,
         );
 
+        helper.log('debug', {
+            message: 'Files',
+            files,
+        });
+
         helper.return(files);
     },
 };
