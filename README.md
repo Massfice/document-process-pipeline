@@ -299,3 +299,17 @@ The project uses ES2021 output for improved readability while maintaining TypeSc
 -   **Entry Point**: The [index.sh](./index.sh) script serves as the CLI bootstrap
 
 This approach allows the use of clean import statements (`import { something } from './something'`) while ensuring proper ESM compatibility and maintaining the desired output format.
+
+### Console Output Strategy
+
+The CLI uses a strategic approach to console output to enable proper integration with other tools and scripts:
+
+-   **`console.log`**: Writes to standard output (stdout) - used for return values that can be captured by other scripts
+-   **`console.error`**: Writes to standard error (stderr) - used for logging and debugging information that should not interfere with return values
+
+The [Helper](./src/helper.ts) class simplifies this distinction:
+
+-   **`helper.return()`**: Outputs data to stdout for programmatic consumption
+-   **`helper.log()`**: Outputs logs to stderr for debugging and monitoring
+
+This separation ensures that when the CLI is called from other scripts or programs, the return values can be cleanly captured without being mixed with log messages.
