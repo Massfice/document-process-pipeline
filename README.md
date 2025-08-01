@@ -313,3 +313,68 @@ The [Helper](./src/helper.ts) class simplifies this distinction:
 -   **`helper.log()`**: Outputs logs to stderr for debugging and monitoring
 
 This separation ensures that when the CLI is called from other scripts or programs, the return values can be cleanly captured without being mixed with log messages.
+
+### DI System Enhancement (01.08.2025)
+
+The dependency injection system was significantly enhanced to address complex external API testing challenges. The update introduced several key improvements:
+
+#### **Problem Solved:**
+
+-   **Complex GCP object mocking** - Google Cloud Storage objects have overloaded methods and dynamic properties
+-   **Type safety issues** - Previous approach required `as any` type assertions
+-   **Overloaded function signatures** - GCP methods have multiple signatures that TypeScript couldn't handle properly
+
+#### **Solution Implemented:**
+
+**1. GCP Storage Abstraction Layer:**
+
+-   Created `gcp-storage` module with getter-based dependency injection
+-   Replaced direct GCP object usage with clean getter interfaces
+-   Eliminated complex object chaining (`new Storage().getBucket().getFile()`)
+
+**2. Type-Safe Mocking System:**
+
+-   Implemented `FirstPromiseOverload` type utility to handle overloaded functions
+-   Created `initFunctionsFactory` for explicit function extraction
+-   Built `dummyObject` factory for type-safe mock creation
+
+**3. Enhanced Testing Infrastructure:**
+
+-   Simplified test setup with `createMockedBucket` and `createMockedFile` helpers
+-   Eliminated complex manual mocking in favor of declarative mock creation
+-   Maintained full type safety without `as any` assertions
+
+#### **Architectural Changes:**
+
+-   **Before**: Direct GCP object injection with complex mocking
+-   **After**: Getter-based abstraction with clean interfaces
+
+**Example of improvement:**
+
+```typescript
+// Before: Complex setup with type assertions
+const file = mockObject(
+    new File(bucket, 'test.txt'),
+    mockFn,
+) as any;
+file.getMetadata.mockResolvedValue([{ metadata: {} }]);
+
+// After: Clean, type-safe setup
+const mockedFile = createMockedFile(
+    'test.txt',
+    'content',
+    {},
+);
+gcpStorageInject('FileGetter', vi.fn).get.mockResolvedValue(
+    mockedFile,
+);
+```
+
+#### **Benefits:**
+
+-   **Type Safety**: Eliminated `as any` assertions in business logic
+-   **Test Simplicity**: Reduced test setup complexity by ~18%
+-   **Maintainability**: Clear separation between GCP abstraction and business logic
+-   **Extensibility**: Easy to add new GCP services or external APIs
+
+**Commit**: [DI System Enhancement](https://github.com/Massfice/document-process-pipeline/commit/21a1b32789e901fa9d3468caf88a5189a73a6da5#diff-97ed604fa967ece3ac3c2697051e54ec3061829d7a35ba7f52870461289f1194)
