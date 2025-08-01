@@ -3,7 +3,9 @@ import {
     Mocked,
     MockFactory,
     ValueFactory,
+    Functions,
 } from './types';
+import { FunctionPropertyNames } from '../types/FunctionPropertyNames';
 
 export const mockObject = <T extends Record<string, any>>(
     obj: T,
@@ -140,4 +142,63 @@ export const singleton = <T extends () => any>(
 
         return instance;
     };
+};
+
+export const getter = <T extends (...args: any[]) => any>(
+    factory: T,
+): (() => { get: T }) =>
+    singleton(() => ({ get: factory }));
+
+export const initFunctionsFactory = <
+    T extends Record<string, any>,
+>() => {
+    const factory = <K extends FunctionPropertyNames<T>>(
+        requiredFunctions: K[],
+    ) => {
+        const factory = (
+            obj: Partial<T> = {},
+        ): Functions<T, K> => {
+            requiredFunctions.forEach((key) => {
+                if (typeof obj[key] !== 'undefined') {
+                    return;
+                }
+
+                obj[key] = (() => {
+                    throw new Error(
+                        `Function ${key.toString()} is not implemented`,
+                    );
+                }) as any;
+            });
+
+            return obj as any;
+        };
+
+        return factory;
+    };
+
+    return factory;
+};
+
+export const dummyObjectFactory = (
+    mockFactory: () => MockFactory,
+) => {
+    const dummyObject = <
+        T extends () => Record<
+            string,
+            (...args: any[]) => any
+        >,
+    >(
+        factory: T,
+    ) => {
+        const mocksFacktory = mockFactory();
+
+        const mock = mockObject(
+            factory() as ReturnType<T>,
+            mocksFacktory,
+        );
+
+        return mock;
+    };
+
+    return dummyObject;
 };

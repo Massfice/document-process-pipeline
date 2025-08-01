@@ -1,4 +1,10 @@
-import { describe, it, expect, vi } from 'vitest';
+import {
+    describe,
+    it,
+    expect,
+    vi,
+    beforeAll,
+} from 'vitest';
 import { cli } from '../src/cli';
 import { shell } from './helpers/shell';
 import { inject } from '../src/di';
@@ -6,6 +12,15 @@ import { inject } from '../src/di';
 const cls = shell(cli);
 
 describe('list', () => {
+    beforeAll(() => {
+        inject(
+            'ConfigProvider',
+            vi.fn,
+        ).getConfig.mockReturnValue({
+            BUCKET_NAME: 'test-bucket',
+        });
+    });
+
     it('returns list of files', async () => {
         const storageProvider = inject(
             'StorageProvider',

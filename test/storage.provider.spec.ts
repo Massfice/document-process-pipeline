@@ -1,57 +1,37 @@
 import {
     beforeAll,
-    beforeEach,
     describe,
     expect,
     it,
     vi,
 } from 'vitest';
 import { inject } from '../src/di';
+import { ApiError } from '@google-cloud/storage';
 import {
-    ApiError,
-    Bucket,
-    File,
-    GetFileMetadataResponse,
-    GetFileResponse,
-    Storage,
-} from '@google-cloud/storage';
-import { createMockFactory, mockObject } from '../sdk/di';
-import { Readable } from 'stream';
-import { Mock, Mocked } from '../sdk/di/types';
-
-const mockFn = createMockFactory(vi.fn);
-
-type MockedBucket = Omit<Mocked<Bucket>, 'getFiles'> & {
-    getFiles: Mock<[], Promise<[GetFileResponse[0][]]>>;
-};
-
-type MockedFile = Omit<Mocked<File>, 'getMetadata'> & {
-    getMetadata: Mock<
-        [],
-        Promise<[GetFileMetadataResponse[0]]>
-    >;
-};
+    createMockedBucket,
+    createMockedFile,
+} from './helpers/mocks';
+import { gcpStorageInject } from '../src/gcp-storage';
 
 describe('StorageProvider', () => {
-    const bucket: MockedBucket = mockObject(
-        new Bucket(new Storage(), 'test-bucket'),
-        mockFn,
-    ) as any;
-
     beforeAll(() => {
         inject(
-            'BucketProvider',
+            'ConfigProvider',
             vi.fn,
-        ).getBucket.mockResolvedValue(bucket as any);
-    });
-
-    beforeEach(() => {
-        bucket.upload.mockReset();
-        bucket.file.mockReset();
-        bucket.getFiles.mockReset();
+        ).getConfig.mockReturnValue({
+            BUCKET_NAME: 'test-bucket',
+        });
     });
 
     it('creates a file in the bucket', async () => {
+        const mockedBucket =
+            createMockedBucket('test-bucket');
+
+        gcpStorageInject(
+            'BucketGetter',
+            vi.fn,
+        ).get.mockResolvedValue(mockedBucket);
+
         const storageProvider = inject('StorageProvider');
 
         const fileHandle = await storageProvider.uploadFile(
@@ -60,7 +40,7 @@ describe('StorageProvider', () => {
 
         expect(fileHandle).toBe('test.txt');
 
-        expect(bucket.upload).toHaveBeenCalledWith(
+        expect(mockedBucket.upload).toHaveBeenCalledWith(
             '/Users/something/test.txt',
             {
                 contentType: 'plain/text',
@@ -74,12 +54,17 @@ describe('StorageProvider', () => {
     });
 
     it('updates a file metadata', async () => {
-        const file = mockObject(
-            new File(bucket as any, 'test.txt'),
-            mockFn,
+        const mockedFile = createMockedFile(
+            'text.txt',
+            'test',
+            {},
         );
 
-        bucket.file.mockReturnValue(file as any);
+        const fileGetter = gcpStorageInject(
+            'FileGetter',
+            vi.fn,
+        );
+        fileGetter.get.mockResolvedValue(mockedFile);
 
         const storageProvider = inject('StorageProvider');
 
@@ -91,34 +76,32 @@ describe('StorageProvider', () => {
             },
         );
 
-        expect(file.setMetadata).toHaveBeenCalledWith({
-            metadata: {
-                something: '123',
-                somethingElse: '456',
+        expect(mockedFile.setMetadata).toHaveBeenCalledWith(
+            {
+                metadata: {
+                    something: '123',
+                    somethingElse: '456',
+                },
             },
-        });
+        );
 
-        expect(bucket.file).toHaveBeenCalledWith(
+        expect(fileGetter.get).toHaveBeenCalledWith(
+            'test-bucket',
             'text.txt',
         );
     });
 
     it('returns file content', async () => {
-        const file = mockObject(
-            new File(bucket as any, 'test.txt'),
-            mockFn,
+        const mockedFile = createMockedFile(
+            'text.txt',
+            'test',
+            {},
         );
 
-        bucket.file.mockReturnValue(file as any);
-
-        const readStream = new Readable({
-            read() {},
-        });
-
-        file.createReadStream.mockReturnValue(readStream);
-
-        readStream.push('test');
-        readStream.push(null);
+        gcpStorageInject(
+            'FileGetter',
+            vi.fn,
+        ).get.mockResolvedValue(mockedFile);
 
         const storageProvider = inject('StorageProvider');
 
@@ -131,19 +114,27 @@ describe('StorageProvider', () => {
     });
 
     it('returns null if file does not exist', async () => {
-        const file = mockObject(
-            new File(bucket as any, 'test.txt'),
-            mockFn,
+        const mockedFile = createMockedFile(
+            'text.txt',
+            'test',
+            {},
         );
 
-        bucket.file.mockReturnValue(file as any);
+        mockedFile.createReadStream.mockImplementation(
+            () => {
+                const apiError = new ApiError(
+                    'No such object',
+                );
+                apiError.code = 404;
 
-        file.createReadStream.mockImplementation(() => {
-            const apiError = new ApiError('No such object');
-            apiError.code = 404;
+                throw apiError;
+            },
+        );
 
-            throw apiError;
-        });
+        gcpStorageInject(
+            'FileGetter',
+            vi.fn,
+        ).get.mockResolvedValue(mockedFile);
 
         const storageProvider = inject('StorageProvider');
 
@@ -156,7 +147,10 @@ describe('StorageProvider', () => {
     });
 
     it('returns empty list of files', async () => {
-        bucket.getFiles.mockResolvedValue([[]]);
+        gcpStorageInject(
+            'FilesGetter',
+            vi.fn,
+        ).get.mockResolvedValue([]);
 
         const storageProvider = inject('StorageProvider');
 
@@ -166,86 +160,44 @@ describe('StorageProvider', () => {
     });
 
     it('returns list of files', async () => {
-        const rawFile1 = new File(
-            bucket as any,
+        const mockedFile1 = createMockedFile(
             'test.txt',
+            'test1',
+            {
+                status: 'uploaded',
+            },
         );
-        const rawFile2 = new File(
-            bucket as any,
+        const mockedFile2 = createMockedFile(
             'test2.txt',
+            'test2',
+            {
+                status: 'completed',
+            },
         );
-        const rawFile3 = new File(
-            bucket as any,
+        const mockedFile3 = createMockedFile(
             'test3.txt',
+            'test3',
+            {
+                status: 'ivalid',
+            },
         );
 
-        const file1: MockedFile = mockObject(
-            rawFile1,
-            createMockFactory(vi.fn),
-        ) as any;
-        const file2: MockedFile = mockObject(
-            rawFile2,
-            createMockFactory(vi.fn),
-        ) as any;
-        const file3: MockedFile = mockObject(
-            rawFile3,
-            createMockFactory(vi.fn),
-        ) as any;
-
-        file1.getMetadata = vi.fn();
-        file2.getMetadata = vi.fn();
-        file3.getMetadata = vi.fn();
-
-        file1.getMetadata.mockResolvedValue([
-            {
-                metadata: {
-                    status: 'uploaded',
-                },
-            },
+        const filesGetter = gcpStorageInject(
+            'FilesGetter',
+            vi.fn,
+        );
+        filesGetter.get.mockResolvedValue([
+            mockedFile1,
+            mockedFile2,
+            mockedFile3,
         ]);
-        file2.getMetadata.mockResolvedValue([
-            {
-                metadata: {
-                    status: 'completed',
-                },
-            },
-        ]);
-        file3.getMetadata.mockResolvedValue([
-            {
-                metadata: {
-                    status: 'ivalid',
-                },
-            },
-        ]);
-
-        const readStream1 = new Readable({
-            read() {},
-        });
-        const readStream2 = new Readable({
-            read() {},
-        });
-        const readStream3 = new Readable({
-            read() {},
-        });
-
-        readStream1.push('test1');
-        readStream1.push(null);
-        readStream2.push('test2');
-        readStream2.push(null);
-        readStream3.push('test3');
-        readStream3.push(null);
-
-        file1.createReadStream.mockReturnValue(readStream1);
-        file2.createReadStream.mockReturnValue(readStream2);
-        file3.createReadStream.mockReturnValue(readStream3);
-
-        bucket.file.mockReturnValueOnce(file1 as any);
-        bucket.file.mockReturnValueOnce(file2 as any);
-        bucket.file.mockReturnValueOnce(file3 as any);
-
-        bucket.getFiles.mockResolvedValue([
-            [file1 as any, file2 as any, file3 as any],
-        ]);
+        const fileGetter = gcpStorageInject(
+            'FileGetter',
+            vi.fn,
+        );
+        fileGetter.get.mockResolvedValueOnce(mockedFile1);
+        fileGetter.get.mockResolvedValueOnce(mockedFile2);
+        fileGetter.get.mockResolvedValueOnce(mockedFile3);
 
         const storageProvider = inject('StorageProvider');
 
@@ -275,103 +227,80 @@ describe('StorageProvider', () => {
             },
         ]);
 
-        expect(bucket.file).toHaveBeenNthCalledWith(
+        expect(filesGetter.get).toHaveBeenCalledWith(
+            'test-bucket',
+        );
+
+        expect(fileGetter.get).toHaveBeenNthCalledWith(
             1,
+            'test-bucket',
             'test.txt',
         );
-        expect(bucket.file).toHaveBeenNthCalledWith(
+        expect(fileGetter.get).toHaveBeenNthCalledWith(
             2,
+            'test-bucket',
             'test2.txt',
         );
-        expect(bucket.file).toHaveBeenNthCalledWith(
+        expect(fileGetter.get).toHaveBeenNthCalledWith(
             3,
+            'test-bucket',
             'test3.txt',
         );
 
-        expect(file1.getMetadata).toHaveBeenCalled();
-        expect(file2.getMetadata).toHaveBeenCalled();
-        expect(file3.getMetadata).toHaveBeenCalled();
+        expect(mockedFile1.getMetadata).toHaveBeenCalled();
+        expect(mockedFile2.getMetadata).toHaveBeenCalled();
+        expect(mockedFile3.getMetadata).toHaveBeenCalled();
 
-        expect(file1.createReadStream).toHaveBeenCalled();
-        expect(file2.createReadStream).toHaveBeenCalled();
-        expect(file3.createReadStream).toHaveBeenCalled();
+        expect(
+            mockedFile1.createReadStream,
+        ).toHaveBeenCalled();
+        expect(
+            mockedFile2.createReadStream,
+        ).toHaveBeenCalled();
+        expect(
+            mockedFile3.createReadStream,
+        ).toHaveBeenCalled();
     });
 
     it('filters by metadata status', async () => {
-        const rawFile1 = new File(
-            bucket as any,
+        const mockedFile1 = createMockedFile(
             'test.txt',
+            'test1',
+            {
+                status: 'uploaded',
+            },
         );
-        const rawFile2 = new File(
-            bucket as any,
+        const mockedFile2 = createMockedFile(
             'test2.txt',
+            'test2',
+            {
+                status: 'completed',
+            },
         );
-        const rawFile3 = new File(
-            bucket as any,
+        const mockedFile3 = createMockedFile(
             'test3.txt',
+            'test3',
+            {
+                status: 'ivalid',
+            },
         );
 
-        const file1: MockedFile = mockObject(
-            rawFile1,
-            createMockFactory(vi.fn),
-        ) as any;
-        const file2: MockedFile = mockObject(
-            rawFile2,
-            createMockFactory(vi.fn),
-        ) as any;
-        const file3: MockedFile = mockObject(
-            rawFile3,
-            createMockFactory(vi.fn),
-        ) as any;
-
-        file1.getMetadata = vi.fn();
-        file2.getMetadata = vi.fn();
-        file3.getMetadata = vi.fn();
-
-        file1.getMetadata.mockResolvedValue([
-            {
-                metadata: {
-                    status: 'uploaded',
-                },
-            },
+        const filesGetter = gcpStorageInject(
+            'FilesGetter',
+            vi.fn,
+        );
+        filesGetter.get.mockResolvedValue([
+            mockedFile1,
+            mockedFile2,
+            mockedFile3,
         ]);
-        file2.getMetadata.mockResolvedValue([{}]);
-        file3.getMetadata.mockResolvedValue([
-            {
-                metadata: {
-                    status: 'ivalid',
-                },
-            },
-        ]);
-
-        const readStream1 = new Readable({
-            read() {},
-        });
-        const readStream2 = new Readable({
-            read() {},
-        });
-        const readStream3 = new Readable({
-            read() {},
-        });
-
-        readStream1.push('test1');
-        readStream1.push(null);
-        readStream2.push('test2');
-        readStream2.push(null);
-        readStream3.push('test3');
-        readStream3.push(null);
-
-        file1.createReadStream.mockReturnValue(readStream1);
-        file2.createReadStream.mockReturnValue(readStream2);
-        file3.createReadStream.mockReturnValue(readStream3);
-
-        bucket.file.mockReturnValueOnce(file1 as any);
-        bucket.file.mockReturnValueOnce(file2 as any);
-        bucket.file.mockReturnValueOnce(file3 as any);
-
-        bucket.getFiles.mockResolvedValue([
-            [file1 as any, file2 as any, file3 as any],
-        ]);
+        const fileGetter = gcpStorageInject(
+            'FileGetter',
+            vi.fn,
+        );
+        fileGetter.get.mockResolvedValueOnce(mockedFile1);
+        fileGetter.get.mockResolvedValueOnce(mockedFile2);
+        fileGetter.get.mockResolvedValueOnce(mockedFile3);
 
         const storageProvider = inject('StorageProvider');
 

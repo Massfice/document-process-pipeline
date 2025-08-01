@@ -1,4 +1,10 @@
-import { describe, expect, it, vi } from 'vitest';
+import {
+    beforeAll,
+    describe,
+    expect,
+    it,
+    vi,
+} from 'vitest';
 import { shell, ShellError } from './helpers/shell';
 import { cli } from '../src/cli';
 import { inject } from '../src/di';
@@ -7,6 +13,15 @@ import path from 'path';
 const cls = shell(cli);
 
 describe('upload', () => {
+    beforeAll(() => {
+        inject(
+            'ConfigProvider',
+            vi.fn,
+        ).getConfig.mockReturnValue({
+            BUCKET_NAME: 'test-bucket',
+        });
+    });
+
     it('uploads a file', async () => {
         const filePath = path.join(
             process.cwd(),

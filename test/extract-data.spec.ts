@@ -1,4 +1,10 @@
-import { describe, expect, it, vi } from 'vitest';
+import {
+    beforeAll,
+    describe,
+    expect,
+    it,
+    vi,
+} from 'vitest';
 import { shell, ShellError } from './helpers/shell';
 import { cli } from '../src/cli';
 import { inject } from '../src/di';
@@ -6,6 +12,15 @@ import { inject } from '../src/di';
 const cls = shell(cli);
 
 describe('extract-data', () => {
+    beforeAll(() => {
+        inject(
+            'ConfigProvider',
+            vi.fn,
+        ).getConfig.mockReturnValue({
+            BUCKET_NAME: 'test-bucket',
+        });
+    });
+
     it('extracts data from a file, validates it and saves it as metadata', async () => {
         const storageProvider = inject(
             'StorageProvider',

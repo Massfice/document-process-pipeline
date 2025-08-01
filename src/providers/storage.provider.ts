@@ -1,16 +1,24 @@
 import { ApiError } from '@google-cloud/storage';
 import { Helper } from '../helper';
-import { BucketProvider } from './bucket.provider';
+import {
+    BucketGetter,
+    FileGetter,
+    FilesGetter,
+} from '../gcp-storage/getters';
 
 export class StorageProvider {
     constructor(
-        private readonly bucketProvider: BucketProvider,
+        private readonly bucketName: string,
+        private readonly bucketGetter: BucketGetter,
+        private readonly fileGetter: FileGetter,
+        private readonly filesGetter: FilesGetter,
         private readonly helper: Helper,
     ) {}
 
     async uploadFile(fileName: string) {
-        const bucket =
-            await this.bucketProvider.getBucket();
+        const bucket = await this.bucketGetter.get(
+            this.bucketName,
+        );
 
         this.helper.log('info', {
             message: `Uploading file to bucket: ${bucket.name}`,
@@ -44,8 +52,10 @@ export class StorageProvider {
         fileName: string,
         metadata: Record<string, string>,
     ) {
-        const bucket =
-            await this.bucketProvider.getBucket();
+        const file = await this.fileGetter.get(
+            this.bucketName,
+            fileName,
+        );
 
         this.helper.log('info', {
             message: 'Updating file metadata',
@@ -53,7 +63,7 @@ export class StorageProvider {
             metadata,
         });
 
-        await bucket.file(fileName).setMetadata({
+        await file.setMetadata({
             metadata: {
                 ...metadata,
             },
@@ -61,10 +71,10 @@ export class StorageProvider {
     }
 
     async getFileContent(fileName: string) {
-        const bucket =
-            await this.bucketProvider.getBucket();
-
-        const file = bucket.file(fileName);
+        const file = await this.fileGetter.get(
+            this.bucketName,
+            fileName,
+        );
 
         try {
             const readStream = file.createReadStream();
@@ -120,10 +130,9 @@ export class StorageProvider {
     }
 
     async listFiles(status?: string) {
-        const bucket =
-            await this.bucketProvider.getBucket();
-
-        const [files] = await bucket.getFiles();
+        const files = await this.filesGetter.get(
+            this.bucketName,
+        );
 
         const filesWithMetadata = await Promise.all(
             files.map(async (file) => {

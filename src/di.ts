@@ -3,7 +3,7 @@ import { configSchema } from './schemas/config.schema';
 import { Helper } from './helper';
 import { StorageProvider } from './providers/storage.provider';
 import { ConfigProvider } from './providers/config.provider';
-import { BucketProvider } from './providers/bucket.provider';
+import { gcpStorageInject } from './gcp-storage';
 
 const configProviderFactory = () => {
     return new ConfigProvider(
@@ -14,13 +14,12 @@ const configProviderFactory = () => {
 
 const storageProviderFactory = () => {
     return new StorageProvider(
-        inject('BucketProvider'),
+        inject('ConfigProvider').getConfig().BUCKET_NAME,
+        gcpStorageInject('BucketGetter'),
+        gcpStorageInject('FileGetter'),
+        gcpStorageInject('FilesGetter'),
         inject('Helper'),
     );
-};
-
-const bucketProviderFactory = () => {
-    return new BucketProvider(inject('ConfigProvider'));
 };
 
 const helperFactory = () => new Helper();
@@ -29,5 +28,4 @@ export const inject = provide({
     ConfigProvider: singleton(configProviderFactory),
     StorageProvider: singleton(storageProviderFactory),
     Helper: singleton(helperFactory),
-    BucketProvider: singleton(bucketProviderFactory),
 });

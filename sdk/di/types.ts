@@ -1,5 +1,6 @@
 import { FunctionPropertyNames } from '../types/FunctionPropertyNames';
 import { PromiseOnly } from '../types/PromiseOnly';
+import { FirstPromiseOverload } from '../types/FirstPromiseOverload';
 
 export interface Mock<
     TArgs extends any[] = any,
@@ -39,3 +40,10 @@ export interface ValueFactory<T> {
     (): T;
     mockFactory: MockFactory | null;
 }
+
+export type Functions<
+    T extends Record<string, any>,
+    K extends keyof T = FunctionPropertyNames<T>,
+> = {
+    [P in K]: FirstPromiseOverload<T[P]>;
+};
